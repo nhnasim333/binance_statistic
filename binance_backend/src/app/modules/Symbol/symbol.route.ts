@@ -24,6 +24,8 @@ router.get("/", SymbolController.getAllSymbols);
 
 router.get("/list", SymbolController.getAllSymbolsList);
 
+router.get("/active", SymbolController.getAllSymbolsList);
+
 router.get("/:id", SymbolController.getSymbolById);
 
 router.patch(

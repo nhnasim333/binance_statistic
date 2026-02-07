@@ -1,13 +1,11 @@
 import { Outlet } from 'react-router-dom';
-import CommentsPage from './CommentsPage';
+import Dashboard from './Dashboard';
 
 const MainLayout = () => {
     return (
-        <div>
-            <CommentsPage />
-            <div>
-                <Outlet />
-            </div>
+        <div className="min-h-screen bg-[#0B0E11]">
+            <Dashboard />
+            <Outlet />
         </div>
     );
 };
