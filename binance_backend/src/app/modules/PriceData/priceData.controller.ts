@@ -79,9 +79,61 @@ const getAggregatedData = catchAsync(async (req, res) => {
   });
 });
 
+const getRecentPriceData = catchAsync(async (req, res) => {
+  const { symbol, intervalHour, limit } = req.query;
+
+  if (!symbol) {
+    return sendResponse(res, {
+      statusCode: httpStatus.BAD_REQUEST,
+      success: false,
+      message: "Symbol is required",
+      data: null,
+    });
+  }
+
+  const intervalCount = limit ? parseInt(limit as string) : 100;
+  const result = await PriceDataService.getRecentIntervals(
+    symbol as string,
+    intervalCount
+  );
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Recent price data retrieved successfully",
+    data: result,
+  });
+});
+
+const getCurrentPrice = catchAsync(async (req, res) => {
+  const { symbol } = req.params;
+  const result = await PriceDataService.getLatestPriceForSymbol(symbol);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Current price retrieved successfully",
+    data: result,
+  });
+});
+
+const get24hStats = catchAsync(async (req, res) => {
+  // For now, return empty array - this would need to be implemented
+  // with actual 24h statistics calculation
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "24h statistics retrieved successfully",
+    data: [],
+  });
+});
+
 export const PriceDataController = {
   getPriceDataBySymbol,
   getLatestPrice,
   getRecentIntervals,
   getAggregatedData,
+  getRecentPriceData,
+  getCurrentPrice,
+  get24hStats,
 };

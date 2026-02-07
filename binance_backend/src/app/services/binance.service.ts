@@ -164,6 +164,7 @@ class BinanceWebSocketService {
     try {
       const symbol = ticker.s;
       const price = parseFloat(ticker.c);
+      const priceChangePercent = parseFloat(ticker.P);
       const timestamp = Date.now();
       const volume = parseFloat(ticker.v);
       const high = parseFloat(ticker.h);
@@ -171,7 +172,7 @@ class BinanceWebSocketService {
       const open = parseFloat(ticker.o);
 
       // Store in Redis for real-time access
-      await redisService.setRealtimePrice(symbol, price, timestamp);
+      await redisService.setRealtimePrice(symbol, price, timestamp, priceChangePercent);
       await redisService.addPriceToTimeSeries(symbol, price, timestamp);
 
       // Buffer data for batch save to database

@@ -111,12 +111,29 @@ class WebSocketService {
       const intervalStartTime = new Date(now);
       intervalStartTime.setHours(intervalHour, 0, 0, 0);
       
-      const historicalData =
-        await PriceDataService.getAggregatedPriceData(
+      // If the requested interval hour is in the future today, use yesterday's interval
+      if (intervalStartTime > now) {
+        intervalStartTime.setDate(intervalStartTime.getDate() - 1);
+      }
+      
+      let historicalData =
+        await PriceDataService.getPriceDataByInterval(
           symbol.toUpperCase(),
           intervalStartTime,
           intervalHour
         );
+
+      // If no data found for this interval, get the most recent data available
+      if (!historicalData || historicalData.length === 0) {
+        console.log(`⚠️ No interval data for ${symbol}, fetching recent data...`);
+        const endTime = new Date();
+        const startTime = new Date(endTime.getTime() - 4 * 60 * 60 * 1000); // Last 4 hours
+        historicalData = await PriceDataService.getPriceDataBySymbol(
+          symbol.toUpperCase(),
+          startTime,
+          endTime
+        );
+      }
 
       socket.emit("historical_data", {
         symbol: symbol.toUpperCase(),
@@ -124,6 +141,8 @@ class WebSocketService {
         data: historicalData,
         timestamp: Date.now(),
       });
+      
+      console.log(`📊 Sent ${historicalData?.length || 0} data points for ${symbol}`);
     } catch (error) {
       console.error("❌ Error fetching historical data:", error);
       socket.emit("error", { message: "Failed to fetch historical data" });
@@ -212,8 +231,13 @@ class WebSocketService {
       // Get latest prices from Redis for all subscribed symbols
       const priceUpdates = await Promise.all(
         Array.from(allSubscribedSymbols).map(async (symbol) => {
-          const price = await redisService.getRealtimePrice(symbol);
-          return { symbol, price, timestamp: Date.now() };
+          const priceData = await redisService.getRealtimePrice(symbol);
+          return { 
+            symbol, 
+            price: priceData?.price, 
+            priceChangePercent: priceData?.priceChangePercent || 0,
+            timestamp: Date.now() 
+          };
         })
       );
 

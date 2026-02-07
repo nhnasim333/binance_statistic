@@ -94,10 +94,11 @@ class RedisService {
   async setRealtimePrice(
     symbol: string,
     price: number,
-    timestamp: number
+    timestamp: number,
+    priceChangePercent?: number
   ): Promise<void> {
     const key = `price:${symbol}`;
-    const data = JSON.stringify({ symbol, price, timestamp });
+    const data = JSON.stringify({ symbol, price, timestamp, priceChangePercent });
     await this.client.setex(key, 3600, data); // Expires in 1 hour
   }
 

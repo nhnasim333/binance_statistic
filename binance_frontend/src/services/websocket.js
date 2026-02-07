@@ -52,6 +52,11 @@ class WebSocketService {
       this.notifyListeners("interval_update", data);
     });
 
+    // Handle historical data
+    this.socket.on("historical_data", (data) => {
+      this.notifyListeners("historical_data", data);
+    });
+
     // Handle subscription confirmation
     this.socket.on("subscribed", (data) => {
       console.log("📊 Subscribed to:", data.symbols);
