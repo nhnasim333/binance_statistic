@@ -27,6 +27,11 @@ const PriceChart = ({ data = [], livePrice }) => {
           timeVisible: true,
           secondsVisible: false,
           borderColor: "#2B3139",
+          rightOffset: 12,
+          barSpacing: 3,
+          fixLeftEdge: false,
+          fixRightEdge: false,
+          lockVisibleTimeRangeOnResize: true,
         },
         rightPriceScale: {
           borderColor: "#2B3139",
@@ -109,10 +114,30 @@ const PriceChart = ({ data = [], livePrice }) => {
           .sort((a, b) => a.time - b.time); // Sort by time ascending
 
         console.log("📊 Formatted data sample:", formattedData.slice(0, 3));
+        console.log("📊 Formatted data time range:", {
+          first: new Date(formattedData[0].time * 1000).toISOString(),
+          last: new Date(formattedData[formattedData.length - 1].time * 1000).toISOString()
+        });
         console.log("📊 Total formatted points:", formattedData.length);
         
         if (formattedData.length > 0) {
           seriesRef.current.setData(formattedData);
+          
+          // Fit the chart to show all data with a slight delay to ensure rendering
+          if (chartRef.current) {
+            setTimeout(() => {
+              if (chartRef.current) {
+                // Set visible range to show all data
+                const timeScale = chartRef.current.timeScale();
+                timeScale.setVisibleRange({
+                  from: formattedData[0].time,
+                  to: formattedData[formattedData.length - 1].time,
+                });
+                console.log("✅ Visible range set to show all data points");
+              }
+            }, 100);
+          }
+          
           console.log("✅ Chart data set successfully");
         } else {
           console.warn("⚠️ No valid data points after formatting");
