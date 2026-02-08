@@ -13,21 +13,8 @@ const Dashboard = () => {
   const [livePrices, setLivePrices] = useState({});
   const [chartData, setChartData] = useState([]);
   const [priceChanges, setPriceChanges] = useState({});
-
-  // Helper function to get current 4-hour interval
-  const getCurrentIntervalHour = () => {
-    const hours = [1, 5, 9, 13, 17, 21];
-    const currentHour = new Date().getHours();
-    
-    // Find the interval this hour belongs to
-    for (let i = hours.length - 1; i >= 0; i--) {
-      if (currentHour >= hours[i]) {
-        return hours[i];
-      }
-    }
-    // If before 1 AM, belongs to previous day's 21 interval
-    return 21;
-  };
+  const [chartLoading, setChartLoading] = useState(false);
+  const [chartDataCache, setChartDataCache] = useState({}); // Cache historical data
 
   // Fetch active symbols
   const { data: symbolsResponse, isLoading: symbolsLoading, error: symbolsError } = useGetActiveSymbolsQuery();
@@ -156,15 +143,29 @@ const Dashboard = () => {
       if (data.data && Array.isArray(data.data)) {
         console.log("📊 Chart data sample:", data.data.slice(0, 5));
         console.log("📊 Total data points:", data.data.length);
-        setChartData(data.data);
-        if (data.data.length > 0) {
-          toast.success(`Loaded ${data.data.length} data points for ${data.symbol}`);
-        } else {
-          toast.info(`No historical data available for ${data.symbol} in current interval`);
+        
+        // Cache the data
+        setChartDataCache(prev => ({
+          ...prev,
+          [data.symbol]: data.data
+        }));
+        
+        // Update chart if this is the selected symbol
+        if (data.symbol === selectedSymbol) {
+          setChartData(data.data);
+          setChartLoading(false);
+          if (data.data.length > 0) {
+            toast.success(`Loaded ${data.data.length} data points for ${data.symbol}`);
+          } else {
+            toast.info(`No historical data available for ${data.symbol} in current interval`);
+          }
         }
       } else {
         console.warn("⚠️ No data array in response:", data);
-        setChartData([]);
+        if (data.symbol === selectedSymbol) {
+          setChartData([]);
+          setChartLoading(false);
+        }
       }
     };
 
@@ -180,17 +181,33 @@ const Dashboard = () => {
       unsubscribeInterval();
       unsubscribeHistorical();
     };
-  }, []); // Empty deps - handlers use functional updates
+  }, [selectedSymbol]); // Need selectedSymbol for handleHistoricalData comparison
+
+  // Prefetch chart data on hover
+  const handleSymbolHover = useCallback((symbol) => {
+    // Only prefetch if not already cached
+    if (!chartDataCache[symbol]) {
+      wsService.getHistoricalData(symbol);
+    }
+  }, [chartDataCache]);
 
   // Handle symbol selection
   const handleSymbolClick = useCallback((symbol) => {
     setSelectedSymbol(symbol);
-    setChartData([]); // Clear previous chart data
-    // Request historical data for the selected symbol
-    const intervalHour = getCurrentIntervalHour();
-    console.log(`📊 Requesting data for ${symbol} at interval ${intervalHour}:00`);
-    wsService.getHistoricalData(symbol, intervalHour);
-  }, []);
+    
+    // Check if data is already cached
+    if (chartDataCache[symbol]) {
+      console.log(`✅ Using cached data for ${symbol}`);
+      setChartData(chartDataCache[symbol]);
+      setChartLoading(false);
+    } else {
+      // Show loading and request data
+      setChartLoading(true);
+      setChartData([]);
+      console.log(`📊 Requesting data for ${symbol}`);
+      wsService.getHistoricalData(symbol);
+    }
+  }, [chartDataCache]);
 
   // Filter symbols based on search
   const filteredSymbols = symbols.filter((symbol) =>
@@ -301,6 +318,7 @@ const Dashboard = () => {
                       change24h={priceChanges[symbol] || 0}
                       isSelected={selectedSymbol === symbol}
                       onClick={() => handleSymbolClick(symbol)}
+                      onHover={() => handleSymbolHover(symbol)}
                     />
                   ))
                 )}
@@ -345,7 +363,15 @@ const Dashboard = () => {
                     </div>
                   </div>
 
-                  {chartData.length === 0 ? (
+                  {chartLoading ? (
+                    <div className="bg-[#0B0E11] rounded-lg p-8 text-center h-[300px] flex items-center justify-center">
+                      <div className="text-gray-400">
+                        <div className="w-12 h-12 border-4 border-[#FCD535] border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                        <p className="text-lg font-semibold">Loading Chart...</p>
+                        <p className="text-sm mt-1">Fetching price data...</p>
+                      </div>
+                    </div>
+                  ) : chartData.length === 0 ? (
                     <div className="bg-[#0B0E11] rounded-lg p-8 text-center">
                       <div className="text-gray-400 mb-2">
                         <svg className="w-16 h-16 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -102,47 +102,47 @@ class WebSocketService {
       // Handle get historical data request
       socket.on(
   "get_historical",
-  async (data: { symbol: string; intervalHour: number }) => {
+  async (data: { symbol: string; intervalHour?: number }) => {
     try {
-      const { symbol, intervalHour } = data;
+      const { symbol } = data;
+      const upperSymbol = symbol.toUpperCase();
       
-      // Create a Date object for the interval start time
+      // Get current interval information
       const now = new Date();
-      const intervalStartTime = new Date(now);
-      intervalStartTime.setHours(intervalHour, 0, 0, 0);
+      const currentIntervalHour = PriceDataService.getIntervalHour(now);
+      const currentIntervalStart = PriceDataService.getIntervalStartTime(now);
       
-      // If the requested interval hour is in the future today, use yesterday's interval
-      if (intervalStartTime > now) {
-        intervalStartTime.setDate(intervalStartTime.getDate() - 1);
-      }
+      console.log(`📊 Fetching historical data for ${upperSymbol}, interval: ${currentIntervalHour}:00 UTC`);
       
-      let historicalData =
-        await PriceDataService.getPriceDataByInterval(
-          symbol.toUpperCase(),
-          intervalStartTime,
-          intervalHour
-        );
-
-      // If no data found for this interval, get the most recent data available
+      // Get all data from current interval start to now
+      let historicalData = await PriceDataService.getPriceDataBySymbol(
+        upperSymbol,
+        currentIntervalStart,
+        now
+      );
+      
+      console.log(`📊 Found ${historicalData?.length || 0} data points for ${upperSymbol} in current interval`);
+      
+      // If no data in current interval, try to get recent data (last hour)
       if (!historicalData || historicalData.length === 0) {
-        console.log(`⚠️ No interval data for ${symbol}, fetching recent data...`);
-        const endTime = new Date();
-        const startTime = new Date(endTime.getTime() - 4 * 60 * 60 * 1000); // Last 4 hours
+        console.log(`⚠️ No interval data for ${upperSymbol}, fetching last hour data...`);
+        const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
         historicalData = await PriceDataService.getPriceDataBySymbol(
-          symbol.toUpperCase(),
-          startTime,
-          endTime
+          upperSymbol,
+          oneHourAgo,
+          now
         );
       }
 
       socket.emit("historical_data", {
-        symbol: symbol.toUpperCase(),
-        intervalHour,
-        data: historicalData,
+        symbol: upperSymbol,
+        intervalHour: currentIntervalHour,
+        intervalStartTime: currentIntervalStart,
+        data: historicalData || [],
         timestamp: Date.now(),
       });
       
-      console.log(`📊 Sent ${historicalData?.length || 0} data points for ${symbol}`);
+      console.log(`✅ Sent ${historicalData?.length || 0} data points for ${upperSymbol}`);
     } catch (error) {
       console.error("❌ Error fetching historical data:", error);
       socket.emit("error", { message: "Failed to fetch historical data" });

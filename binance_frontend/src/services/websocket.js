@@ -91,10 +91,10 @@ class WebSocketService {
   }
 
   // Get historical data for a symbol
-  getHistoricalData(symbol, intervalHour) {
+  getHistoricalData(symbol) {
     if (!this.socket) return;
 
-    this.socket.emit("get_historical", { symbol, intervalHour });
+    this.socket.emit("get_historical", { symbol });
   }
 
   // Add event listener
