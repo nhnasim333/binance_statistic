@@ -161,12 +161,18 @@ const PriceChart = ({ data = [], livePrice }) => {
             return;
           }
 
-          seriesRef.current.setData(formattedData);
-          setHasData(true);
-          
-          // Store the last data point for reference
-          const lastPoint = formattedData[formattedData.length - 1];
-          lastUpdateRef.current = { time: lastPoint.time, value: lastPoint.value };
+          try {
+            seriesRef.current.setData(formattedData);
+            setHasData(true);
+            
+            // Store the last data point for reference
+            const lastPoint = formattedData[formattedData.length - 1];
+            lastUpdateRef.current = { time: lastPoint.time, value: lastPoint.value };
+          } catch (error) {
+            console.error("❌ Error calling setData:", error);
+            setHasData(false);
+            return;
+          }
           
           // Fit the chart to show all data with a slight delay to ensure rendering
           if (chartRef.current) {
@@ -188,8 +194,9 @@ const PriceChart = ({ data = [], livePrice }) => {
         setHasData(false);
       }
     } else {
-      console.log("📊 Clearing chart - no data");
-      seriesRef.current.setData([]);
+      // Don't clear chart with empty array - it causes crashes
+      // Just mark as no data and skip update
+      console.log("📊 No data available - skipping chart update");
       setHasData(false);
     }
   }, [data]);
@@ -220,16 +227,28 @@ const PriceChart = ({ data = [], livePrice }) => {
     }
 
     try {
-      seriesRef.current.update({
+      // Final validation before update
+      const updateData = {
         time: timestamp,
         value: price,
-      });
+      };
+      
+      // Ensure no null/undefined values
+      if (updateData.time === null || updateData.time === undefined || 
+          updateData.value === null || updateData.value === undefined) {
+        console.warn("⚠️ Skipping update - null values detected");
+        return;
+      }
+      
+      seriesRef.current.update(updateData);
       
       // Update last update reference
       lastUpdateRef.current = { time: timestamp, value: price };
     } catch (error) {
       // Silently handle chart update errors in production
-      console.error("❌ Error updating live price:", error);
+      if (import.meta.env.DEV) {
+        console.error("❌ Error updating live price:", error);
+      }
     }
   }, [livePrice, hasData]);
 
