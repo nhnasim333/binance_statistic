@@ -1,13 +1,29 @@
 import { useEffect, useState, useCallback } from "react";
-import { Search, Activity, TrendingUp } from "lucide-react";
+import { Search, Activity, TrendingUp, LogOut, User } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import TokenCard from "@/components/TokenCard";
 import PriceChart from "@/components/PriceChart";
 import { wsService } from "@/services/websocket";
 import { useGetActiveSymbolsQuery } from "@/redux/features/symbol/symbolApi";
+import { logout, selectCurrentUser } from "@/redux/features/auth/authSlice";
 import { toast } from "sonner";
 
 const Dashboard = () => {
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const currentUser = useSelector(selectCurrentUser);
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSymbol, setSelectedSymbol] = useState(null);
   const [livePrices, setLivePrices] = useState({});
@@ -19,6 +35,14 @@ const Dashboard = () => {
   // Fetch active symbols
   const { data: symbolsResponse, isLoading: symbolsLoading, error: symbolsError } = useGetActiveSymbolsQuery();
   const symbols = symbolsResponse?.data || [];
+
+  // Handle logout
+  const handleLogout = () => {
+    dispatch(logout());
+    wsService.disconnect();
+    toast.success("Logged out successfully");
+    navigate("/login");
+  };
 
   // Reset price changes every hour to prevent indefinite accumulation
   useEffect(() => {
@@ -270,7 +294,7 @@ const Dashboard = () => {
               </div>
             </div>
 
-          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4">
               <div className="flex items-center gap-2 bg-[#0B0E11] px-3 py-2 rounded-lg">
                 <Activity className="w-4 h-4 text-[#0ECB81]" />
                 <span className="text-sm font-semibold">
@@ -281,6 +305,38 @@ const Dashboard = () => {
                 <TrendingUp className="w-4 h-4 text-[#FCD535]" />
                 <span className="text-sm font-semibold">Live</span>
               </div>
+
+              {/* User Menu */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex items-center gap-2 hover:bg-[#0B0E11] px-3 py-2 rounded-lg transition-colors">
+                    <Avatar className="w-8 h-8">
+                      <AvatarFallback className="bg-[#FCD535] text-black font-semibold">
+                        {currentUser?.email ? currentUser.email.charAt(0).toUpperCase() : 'U'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-sm font-medium hidden md:block">
+                      {currentUser?.email || 'User'}
+                    </span>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56 bg-[#1E2329] border-[#2B3139]" align="end">
+                  <DropdownMenuLabel className="text-white">My Account</DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-[#2B3139]" />
+                  <DropdownMenuItem className="text-gray-300 focus:bg-[#2B3139] focus:text-white cursor-default">
+                    <User className="mr-2 h-4 w-4" />
+                    <span className="truncate">{currentUser?.email}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-[#2B3139]" />
+                  <DropdownMenuItem 
+                    onClick={handleLogout}
+                    className="text-red-400 focus:bg-[#2B3139] focus:text-red-400 cursor-pointer"
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Logout</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>

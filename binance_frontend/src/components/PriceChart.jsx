@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createChart } from "lightweight-charts";
 import PropTypes from "prop-types";
 
@@ -6,6 +6,8 @@ const PriceChart = ({ data = [], livePrice }) => {
   const chartContainerRef = useRef(null);
   const chartRef = useRef(null);
   const seriesRef = useRef(null);
+  const lastUpdateRef = useRef({ time: 0, value: 0 });
+  const [hasData, setHasData] = useState(false);
 
   useEffect(() => {
     if (!chartContainerRef.current || chartRef.current) return;
@@ -155,10 +157,16 @@ const PriceChart = ({ data = [], livePrice }) => {
               point.value === null ||
               point.value === undefined
             ));
+            setHasData(false);
             return;
           }
 
           seriesRef.current.setData(formattedData);
+          setHasData(true);
+          
+          // Store the last data point for reference
+          const lastPoint = formattedData[formattedData.length - 1];
+          lastUpdateRef.current = { time: lastPoint.time, value: lastPoint.value };
           
           // Fit the chart to show all data with a slight delay to ensure rendering
           if (chartRef.current) {
@@ -172,41 +180,58 @@ const PriceChart = ({ data = [], livePrice }) => {
                 });
                 console.log("✅ Visible range set to show all data points");
               }
-            }, 100);
+            }, 0);
           }
-          
-          console.log("✅ Chart data set successfully");
-        } else {
-          console.warn("⚠️ No valid data points after formatting");
         }
       } catch (error) {
         console.error("❌ Error formatting chart data:", error);
+        setHasData(false);
       }
     } else {
       console.log("📊 Clearing chart - no data");
       seriesRef.current.setData([]);
+      setHasData(false);
     }
   }, [data]);
 
-  // Update live price
+  // Update live price with debouncing and validation
   useEffect(() => {
-    if (seriesRef.current && livePrice && livePrice.price) {
-      const timestamp = Math.floor((livePrice.timestamp || Date.now()) / 1000);
-      const price = parseFloat(livePrice.price);
-      
-      // Validate both timestamp and price
-      if (!isNaN(price) && !isNaN(timestamp) && price !== null && price !== undefined && price > 0) {
-        try {
-          seriesRef.current.update({
-            time: timestamp,
-            value: price,
-          });
-        } catch (error) {
-          console.error("❌ Error updating live price:", error);
-        }
-      }
+    // Only update if we have chart data already
+    if (!seriesRef.current || !hasData || !livePrice || !livePrice.price) {
+      return;
     }
-  }, [livePrice]);
+
+    const timestamp = Math.floor((livePrice.timestamp || Date.now()) / 1000);
+    const price = parseFloat(livePrice.price);
+    
+    // Validate both timestamp and price
+    if (isNaN(price) || isNaN(timestamp) || price === null || price === undefined || price <= 0) {
+      return;
+    }
+
+    // Skip if same as last update (prevent redundant updates)
+    if (lastUpdateRef.current.time === timestamp && lastUpdateRef.current.value === price) {
+      return;
+    }
+
+    // Skip if timestamp is older than last update
+    if (timestamp < lastUpdateRef.current.time) {
+      return;
+    }
+
+    try {
+      seriesRef.current.update({
+        time: timestamp,
+        value: price,
+      });
+      
+      // Update last update reference
+      lastUpdateRef.current = { time: timestamp, value: price };
+    } catch (error) {
+      // Silently handle chart update errors in production
+      console.error("❌ Error updating live price:", error);
+    }
+  }, [livePrice, hasData]);
 
   return (
     <div className="relative w-full" style={{ minHeight: '300px' }}>
