@@ -20,7 +20,7 @@ class WebSocketService {
   initialize(httpServer: HTTPServer) {
     this.io = new SocketIOServer(httpServer, {
       cors: {
-        origin: ["http://localhost:5173", config.frontend_url],
+        origin: config.frontend_url,
         methods: ["GET", "POST"],
       },
       transports: ["websocket", "polling"],
