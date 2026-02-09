@@ -19,5 +19,4 @@ export default {
   redis_port: process.env.REDIS_PORT,
   redis_password: process.env.REDIS_PASSWORD,
   frontend_url: process.env.FRONTEND_URL
-  // frontend_url: `http://localhost:5173`,
 };
