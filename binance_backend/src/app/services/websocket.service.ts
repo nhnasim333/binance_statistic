@@ -2,6 +2,7 @@ import { Server as HTTPServer } from "http";
 import { Server as SocketIOServer, Socket } from "socket.io";
 import { redisService } from "./redis.service";
 import { PriceDataService } from "../modules/PriceData/priceData.service";
+import config from "../config";
 
 /* eslint-disable no-console */
 
@@ -19,7 +20,7 @@ class WebSocketService {
   initialize(httpServer: HTTPServer) {
     this.io = new SocketIOServer(httpServer, {
       cors: {
-        origin: "*", // Update this in production to your frontend URL
+        origin: ["http://localhost:5173", config.frontend_url],
         methods: ["GET", "POST"],
       },
       transports: ["websocket", "polling"],

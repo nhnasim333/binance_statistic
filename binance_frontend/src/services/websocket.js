@@ -11,7 +11,9 @@ class WebSocketService {
   connect() {
     if (this.socket?.connected) return;
 
-    this.socket = io("http://localhost:5000", {
+    const wsUrl = import.meta.env.VITE_WS_URL || "http://localhost:5000";
+
+    this.socket = io(wsUrl, {
       transports: ["websocket", "polling"],
       reconnection: true,
       reconnectionDelay: 1000,
