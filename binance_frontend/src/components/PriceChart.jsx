@@ -125,7 +125,18 @@ const PriceChart = ({ data = [], livePrice }) => {
             };
           })
           .filter(item => item !== null) // Remove invalid entries
-          .sort((a, b) => a.time - b.time); // Sort by time ascending
+          .sort((a, b) => a.time - b.time) // Sort by time ascending
+          .reduce((acc, curr) => {
+            // Deduplicate: keep only unique timestamps (last value for each timestamp)
+            const lastItem = acc[acc.length - 1];
+            if (!lastItem || lastItem.time !== curr.time) {
+              acc.push(curr);
+            } else {
+              // Replace duplicate with latest value
+              acc[acc.length - 1] = curr;
+            }
+            return acc;
+          }, []);
 
         console.log("📊 Formatted data sample:", formattedData.slice(0, 3));
         console.log("📊 Formatted data time range:", {
@@ -135,33 +146,57 @@ const PriceChart = ({ data = [], livePrice }) => {
         console.log("📊 Total formatted points:", formattedData.length);
         
         if (formattedData.length > 0) {
-          // Validate all data points before setting
+          // Strict validation: ensure all data points are valid
           const isValidData = formattedData.every(point => 
             point && 
             typeof point.time === 'number' && 
             typeof point.value === 'number' && 
             !isNaN(point.time) && 
             !isNaN(point.value) &&
+            isFinite(point.time) &&
+            isFinite(point.value) &&
             point.value !== null &&
-            point.value !== undefined
+            point.value !== undefined &&
+            point.value > 0 &&
+            point.time > 0
           );
 
           if (!isValidData) {
             console.error("❌ Invalid data detected, skipping chart update");
-            console.log("❌ Invalid points:", formattedData.filter(point => 
+            const invalidPoints = formattedData.filter(point => 
               !point || 
               typeof point.time !== 'number' || 
               typeof point.value !== 'number' || 
               isNaN(point.time) || 
               isNaN(point.value) ||
+              !isFinite(point.time) ||
+              !isFinite(point.value) ||
               point.value === null ||
-              point.value === undefined
-            ));
+              point.value === undefined ||
+              point.value <= 0 ||
+              point.time <= 0
+            );
+            console.log("❌ Invalid points count:", invalidPoints.length);
+            if (invalidPoints.length > 0) {
+              console.log("❌ First invalid point:", invalidPoints[0]);
+            }
             setHasData(false);
             return;
           }
 
           try {
+            // Final sanity check before calling setData
+            if (!Array.isArray(formattedData) || formattedData.length === 0) {
+              console.error("❌ Cannot call setData with invalid array");
+              setHasData(false);
+              return;
+            }
+
+            // Log first and last points for debugging
+            console.log("📊 Calling setData with", formattedData.length, "points");
+            console.log("📊 First point:", formattedData[0]);
+            console.log("📊 Last point:", formattedData[formattedData.length - 1]);
+
             seriesRef.current.setData(formattedData);
             setHasData(true);
             
@@ -170,6 +205,7 @@ const PriceChart = ({ data = [], livePrice }) => {
             lastUpdateRef.current = { time: lastPoint.time, value: lastPoint.value };
           } catch (error) {
             console.error("❌ Error calling setData:", error);
+            console.error("❌ Data that caused error:", JSON.stringify(formattedData.slice(0, 5)));
             setHasData(false);
             return;
           }
