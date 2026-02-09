@@ -87,6 +87,11 @@ const PriceChart = ({ data = [], livePrice }) => {
       try {
         const formattedData = data
           .map((item) => {
+            // Skip items with missing data
+            if (!item || typeof item !== 'object') {
+              return null;
+            }
+
             // Handle both Date objects and string timestamps
             const timestamp = item.timestamp;
             let timeInSeconds;
@@ -103,7 +108,14 @@ const PriceChart = ({ data = [], livePrice }) => {
               return null;
             }
 
-            const price = parseFloat(item.price || item.close || 0);
+            // Get price value
+            const priceValue = item.price || item.close || item.value;
+            const price = parseFloat(priceValue);
+            
+            // Validate both time and price are valid numbers
+            if (isNaN(timeInSeconds) || isNaN(price) || price === null || price === undefined || price <= 0) {
+              return null;
+            }
             
             return {
               time: timeInSeconds,
@@ -115,12 +127,37 @@ const PriceChart = ({ data = [], livePrice }) => {
 
         console.log("📊 Formatted data sample:", formattedData.slice(0, 3));
         console.log("📊 Formatted data time range:", {
-          first: new Date(formattedData[0].time * 1000).toISOString(),
-          last: new Date(formattedData[formattedData.length - 1].time * 1000).toISOString()
+          first: formattedData[0] ? new Date(formattedData[0].time * 1000).toISOString() : 'N/A',
+          last: formattedData[formattedData.length - 1] ? new Date(formattedData[formattedData.length - 1].time * 1000).toISOString() : 'N/A'
         });
         console.log("📊 Total formatted points:", formattedData.length);
         
         if (formattedData.length > 0) {
+          // Validate all data points before setting
+          const isValidData = formattedData.every(point => 
+            point && 
+            typeof point.time === 'number' && 
+            typeof point.value === 'number' && 
+            !isNaN(point.time) && 
+            !isNaN(point.value) &&
+            point.value !== null &&
+            point.value !== undefined
+          );
+
+          if (!isValidData) {
+            console.error("❌ Invalid data detected, skipping chart update");
+            console.log("❌ Invalid points:", formattedData.filter(point => 
+              !point || 
+              typeof point.time !== 'number' || 
+              typeof point.value !== 'number' || 
+              isNaN(point.time) || 
+              isNaN(point.value) ||
+              point.value === null ||
+              point.value === undefined
+            ));
+            return;
+          }
+
           seriesRef.current.setData(formattedData);
           
           // Fit the chart to show all data with a slight delay to ensure rendering
@@ -157,11 +194,16 @@ const PriceChart = ({ data = [], livePrice }) => {
       const timestamp = Math.floor((livePrice.timestamp || Date.now()) / 1000);
       const price = parseFloat(livePrice.price);
       
-      if (!isNaN(price) && !isNaN(timestamp)) {
-        seriesRef.current.update({
-          time: timestamp,
-          value: price,
-        });
+      // Validate both timestamp and price
+      if (!isNaN(price) && !isNaN(timestamp) && price !== null && price !== undefined && price > 0) {
+        try {
+          seriesRef.current.update({
+            time: timestamp,
+            value: price,
+          });
+        } catch (error) {
+          console.error("❌ Error updating live price:", error);
+        }
       }
     }
   }, [livePrice]);
