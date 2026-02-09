@@ -11,50 +11,45 @@ class RedisService {
   private isConnected: boolean = false;
 
   constructor() {
-    // Redis client configuration
-    interface RedisConfig {
+    // Check if REDIS_URL is provided (Railway or other cloud providers)
+    if (config.redis_url) {
+      // Use URL-based connection for Railway
+      console.log("📡 Using Redis URL connection for Railway");
+      this.client = new Redis(config.redis_url);
+      this.subscriber = new Redis(config.redis_url);
+    } else {
+      // Use individual config for local development
+      interface RedisConfig {
         host: string;
         port: number;
         password?: string;
         retryStrategy: (times: number) => number | null;
         lazyConnect: boolean;
-    }
+      }
 
-    const redisConfig: RedisConfig = {
+      const redisConfig: RedisConfig = {
         host: config.redis_host || "localhost",
         port: Number(config.redis_port) || 6379,
         lazyConnect: true,
         retryStrategy: (times: number): number | null => {
-            if (times > 3) {
-                console.warn("⚠️ Redis not available - continuing without cache");
-                return null;
-            }
-            const delay = Math.min(times * 50, 2000);
-            return delay;
+          if (times > 3) {
+            console.warn("⚠️ Redis not available - continuing without cache");
+            return null;
+          }
+          const delay = Math.min(times * 50, 2000);
+          return delay;
         },
-    };
+      };
 
-    // Only add password if it exists
-    if (config.redis_password) {
-      redisConfig.password = config.redis_password;
+      // Only add password if it exists
+      if (config.redis_password) {
+        redisConfig.password = config.redis_password;
+      }
+
+      // Create Redis clients with config object
+      this.client = new Redis(redisConfig);
+      this.subscriber = new Redis(redisConfig);
     }
-
-    // Create Redis client
-    this.client = new Redis(redisConfig);
-
-    // Subscriber config (without retryStrategy)
-    const subscriberConfig: any = {
-      host: config.redis_host || "localhost",
-      port: Number(config.redis_port) || 6379,
-      lazyConnect: true,
-    };
-
-    if (config.redis_password) {
-      subscriberConfig.password = config.redis_password;
-    }
-
-    // Create separate subscriber client
-    this.subscriber = new Redis(subscriberConfig);
 
     // Try to connect gracefully
     this.client.connect().catch(() => {

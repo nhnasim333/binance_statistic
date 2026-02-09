@@ -14,6 +14,7 @@ export default {
   super_admin_password: process.env.SUPER_ADMIN_PASSWORD,
   binance_api_key: process.env.BINANCE_API_KEY,
   binance_secret_key: process.env.BINANCE_SECRET_KEY,
+  redis_url: process.env.REDIS_URL, // Railway provides this
   redis_host: process.env.REDIS_HOST,
   redis_port: process.env.REDIS_PORT,
   redis_password: process.env.REDIS_PASSWORD,
